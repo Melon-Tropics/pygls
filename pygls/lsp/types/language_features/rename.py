@@ -21,22 +21,29 @@ https://microsoft.github.io/language-server-protocol/specification
 
 -- Language Features - Rename --
 
-Class attributes are named with camel-case notation because client is expecting
+Class attributes are named with camel case notation because client is expecting
 that.
 """
+import enum
 from typing import Optional
 
 from pygls.lsp.types.basic_structures import (Model, TextDocumentPositionParams,
                                               WorkDoneProgressOptions, WorkDoneProgressParams)
 
 
+class PrepareSupportDefaultBehavior(enum.IntEnum):
+    Identifier = 1
+
+
 class RenameClientCapabilities(Model):
-    dynamic_registration: Optional[bool] = False
-    prepare_support: Optional[bool] = False
+    dynamic_registration: Optional[bool]
+    prepare_support: Optional[bool]
+    prepare_support_default_behavior: Optional[PrepareSupportDefaultBehavior]
+    honors_change_annotations: Optional[bool]
 
 
 class RenameOptions(WorkDoneProgressOptions):
-    prepare_provider: Optional[bool] = False
+    prepare_provider: Optional[bool]
 
 
 class RenameParams(TextDocumentPositionParams, WorkDoneProgressParams):

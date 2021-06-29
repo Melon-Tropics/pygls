@@ -21,14 +21,15 @@ https://microsoft.github.io/language-server-protocol/specification
 
 -- Language Features - Code Action --
 
-Class attributes are named with camel-case notation because client is expecting
+Class attributes are named with camel case notation because client is expecting
 that.
 """
 import enum
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 from pygls.lsp.types.basic_structures import (Command, Diagnostic, Model, PartialResultParams,
-                                              Range, TextDocumentIdentifier,
+                                              Range, ResolveSupportClientCapabilities,
+                                              TextDocumentIdentifier,
                                               TextDocumentRegistrationOptions,
                                               WorkDoneProgressOptions, WorkDoneProgressParams,
                                               WorkspaceEdit)
@@ -46,21 +47,26 @@ class CodeActionKind(str, enum.Enum):
 
 
 class CodeActionLiteralSupportActionKindClientCapabilities(Model):
-    value_set: Optional[List[Union[str, CodeActionKind]]] = None
+    value_set: Optional[List[Union[str, CodeActionKind]]]
 
 
 class CodeActionLiteralSupportClientCapabilities(Model):
-    code_action_kind: Optional[CodeActionLiteralSupportActionKindClientCapabilities] = None
+    code_action_kind: Optional[CodeActionLiteralSupportActionKindClientCapabilities]
 
 
 class CodeActionClientCapabilities(Model):
-    dynamic_registration: Optional[bool] = False
-    code_action_literal_support: Optional[CodeActionLiteralSupportClientCapabilities] = None
-    is_preferred_support: Optional[bool] = False
+    dynamic_registration: Optional[bool]
+    code_action_literal_support: Optional[CodeActionLiteralSupportClientCapabilities]
+    is_preferred_support: Optional[bool]
+    disabled_support: Optional[bool]
+    data_support: Optional[bool]
+    resolve_support: Optional[ResolveSupportClientCapabilities]
+    honors_change_annotations: Optional[bool]
 
 
 class CodeActionOptions(WorkDoneProgressOptions):
-    code_action_kinds: Optional[List[CodeActionKind]] = None
+    code_action_kinds: Optional[List[CodeActionKind]]
+    resolve_provider: Optional[bool]
 
 
 class CodeActionRegistrationOptions(TextDocumentRegistrationOptions, CodeActionOptions):
@@ -69,7 +75,7 @@ class CodeActionRegistrationOptions(TextDocumentRegistrationOptions, CodeActionO
 
 class CodeActionContext(Model):
     diagnostics: List[Diagnostic]
-    only: Optional[List[CodeActionKind]] = None
+    only: Optional[List[CodeActionKind]]
 
 
 class CodeActionParams(WorkDoneProgressParams, PartialResultParams):
@@ -78,10 +84,16 @@ class CodeActionParams(WorkDoneProgressParams, PartialResultParams):
     context: CodeActionContext
 
 
+class CodeActionDisabled(Model):
+    reason: str
+
+
 class CodeAction(Model):
     title: str
-    kind: Optional[CodeActionKind] = None
-    diagnostics: Optional[List[Diagnostic]] = None
-    is_preferred: Optional[bool] = None
-    edit: Optional[WorkspaceEdit] = None
-    command: Optional[Command] = None
+    kind: Optional[CodeActionKind]
+    diagnostics: Optional[List[Diagnostic]]
+    is_preferred: Optional[bool]
+    disabled: Optional[CodeActionDisabled]
+    edit: Optional[WorkspaceEdit]
+    command: Optional[Command]
+    data: Optional[Any]

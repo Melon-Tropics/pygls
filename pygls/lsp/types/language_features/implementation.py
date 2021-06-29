@@ -21,7 +21,7 @@ https://microsoft.github.io/language-server-protocol/specification
 
 -- Language Features - Implementation --
 
-Class attributes are named with camel-case notation because client is expecting
+Class attributes are named with camel case notation because client is expecting
 that.
 """
 from typing import Optional
@@ -34,8 +34,8 @@ from pygls.lsp.types.basic_structures import (Model, PartialResultParams,
 
 
 class ImplementationClientCapabilities(Model):
-    dynamic_registration: Optional[bool] = False
-    link_support: Optional[bool] = False
+    dynamic_registration: Optional[bool]
+    link_support: Optional[bool]
 
 
 class ImplementationOptions(WorkDoneProgressOptions):

@@ -21,20 +21,22 @@ https://microsoft.github.io/language-server-protocol/specification
 
 -- Basic Structures --
 
-Class attributes are named with camel-case notation because client is expecting
+Class attributes are named with camel case notation because client is expecting
 that.
 """
 import enum
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, List, NewType, Optional, TypeVar, Union
 
 from pydantic import BaseModel, root_validator
 from typeguard import check_type
 
+ChangeAnnotationIdentifier = NewType('ChangeAnnotationIdentifier', str)
 NumType = Union[int, float]
-T = TypeVar('T')
 ProgressToken = Union[int, str]
+URI = NewType('URI', str)
+T = TypeVar('T')
 
-ConfigCallbackType = Optional[Callable[[List[Any]], None]]
+ConfigCallbackType = Callable[[List[Any]], None]
 
 
 def snake_to_camel(string: str) -> str:
@@ -48,6 +50,9 @@ class Model(BaseModel):
     class Config:
         alias_generator = snake_to_camel
         allow_population_by_field_name = True
+        fields = {
+            'from_': 'from'
+        }
 
 
 class JsonRpcMessage(Model):
@@ -199,11 +204,44 @@ class Location(Model):
         return f"{self.uri}:{self.range!r}"
 
 
+class Trace(str, enum.Enum):
+    Off = 'off'
+    Messages = 'messages'
+    Verbose = 'verbose'
+
+
+class CancelParams(Model):
+    id: Union[int, str]
+
+
+class ProgressParams(Model):
+    token: ProgressToken
+    value: Any
+
+
+class LogTraceParams(Model):
+    message: str
+    verbose: Optional[str]
+
+
+class SetTraceParams(Model):
+    value: Trace
+
+
+class RegularExpressionsClientCapabilities(Model):
+    engine: str
+    version: Optional[str]
+
+
+class ResolveSupportClientCapabilities(Model):
+    properties: List[str]
+
+
 class LocationLink(Model):
     target_uri: str
     target_range: Range
     target_selection_range: Range
-    origin_selection_range: Optional[Range] = None
+    origin_selection_range: Optional[Range]
 
 
 class DiagnosticSeverity(enum.IntEnum):
@@ -223,25 +261,41 @@ class DiagnosticRelatedInformation(Model):
     message: str
 
 
+class CodeDescription(Model):
+    href: URI
+
+
 class Diagnostic(Model):
     range: Range
     message: str
-    severity: Optional[DiagnosticSeverity] = None
-    code: Optional[Union[int, str]] = None
-    source: Optional[str] = None
-    related_information: Optional[List[DiagnosticRelatedInformation]] = None
-    tags: Optional[List[DiagnosticTag]] = None
+    severity: Optional[DiagnosticSeverity]
+    code: Optional[Union[int, str]]
+    code_description: Optional[CodeDescription]
+    source: Optional[str]
+    related_information: Optional[List[DiagnosticRelatedInformation]]
+    tags: Optional[List[DiagnosticTag]]
+    data: Optional[Any]
 
 
 class Command(Model):
     title: str
     command: str
-    arguments: Optional[List[Any]] = None
+    arguments: Optional[List[Any]]
 
 
 class TextEdit(Model):
     range: Range
     new_text: str
+
+
+class AnnotatedTextEdit(TextEdit):
+    annotation_id: ChangeAnnotationIdentifier
+
+
+class ChangeAnnotation(Model):
+    label: str
+    needs_confirmation: Optional[bool]
+    description: Optional[str]
 
 
 class ResourceOperationKind(str, enum.Enum):
@@ -251,37 +305,40 @@ class ResourceOperationKind(str, enum.Enum):
 
 
 class CreateFileOptions(Model):
-    overwrite: Optional[bool] = False
-    ignore_if_exists: Optional[bool] = False
+    overwrite: Optional[bool]
+    ignore_if_exists: Optional[bool]
 
 
 class CreateFile(Model):
     kind: ResourceOperationKind = ResourceOperationKind.Create
     uri: str
-    options: Optional[CreateFileOptions] = None
+    options: Optional[CreateFileOptions]
+    annotation_id: Optional[ChangeAnnotationIdentifier]
 
 
 class RenameFileOptions(Model):
-    overwrite: Optional[bool] = False
-    ignore_if_exists: Optional[bool] = False
+    overwrite: Optional[bool]
+    ignore_if_exists: Optional[bool]
 
 
 class RenameFile(Model):
     kind: ResourceOperationKind = ResourceOperationKind.Rename
     old_uri: str
     new_uri: str
-    options: Optional[RenameFileOptions] = None
+    options: Optional[RenameFileOptions]
+    annotation_id: Optional[ChangeAnnotationIdentifier]
 
 
 class DeleteFileOptions(Model):
-    recursive: Optional[bool] = False
-    ignore_if_exists: Optional[bool] = False
+    recursive: Optional[bool]
+    ignore_if_exists: Optional[bool]
 
 
 class DeleteFile(Model):
     kind: ResourceOperationKind = ResourceOperationKind.Delete
     uri: str
-    options: Optional[DeleteFileOptions] = None
+    options: Optional[DeleteFileOptions]
+    annotation_id: Optional[ChangeAnnotationIdentifier]
 
 
 class FailureHandlingKind(str, enum.Enum):
@@ -291,10 +348,16 @@ class FailureHandlingKind(str, enum.Enum):
     Undo = 'undo'
 
 
+class ChangeAnnotationSupport(Model):
+    groups_on_label: Optional[bool]
+
+
 class WorkspaceEditClientCapabilities(Model):
-    document_changes: Optional[bool] = False
-    resource_operations: Optional[List[ResourceOperationKind]] = None
-    failure_handling: Optional[FailureHandlingKind] = None
+    document_changes: Optional[bool]
+    resource_operations: Optional[List[ResourceOperationKind]]
+    failure_handling: Optional[FailureHandlingKind]
+    normalizes_line_endings: Optional[bool]
+    change_annotation_support: Optional[ChangeAnnotationSupport]
 
 
 class TextDocumentIdentifier(Model):
@@ -318,7 +381,7 @@ class OptionalVersionedTextDocumentIdentifier(TextDocumentIdentifier):
 
 class TextDocumentEdit(Model):
     text_document: OptionalVersionedTextDocumentIdentifier
-    edits: List[TextEdit]
+    edits: List[Union[TextEdit, AnnotatedTextEdit]]
 
 
 class TextDocumentPositionParams(Model):
@@ -327,20 +390,20 @@ class TextDocumentPositionParams(Model):
 
 
 class DocumentFilter(Model):
-    language: Optional[str] = None
-    scheme: Optional[str] = None
-    pattern: Optional[str] = None
+    language: Optional[str]
+    scheme: Optional[str]
+    pattern: Optional[str]
 
 
 DocumentSelector = List[DocumentFilter]
 
 
 class StaticRegistrationOptions(Model):
-    id: Optional[str] = None
+    id: Optional[str]
 
 
 class TextDocumentRegistrationOptions(Model):
-    document_selector: Optional[DocumentSelector] = None
+    document_selector: Optional[DocumentSelector]
 
 
 class MarkupKind(str, enum.Enum):
@@ -354,8 +417,9 @@ class MarkupContent(Model):
 
 
 class WorkspaceEdit(Model):
-    changes: Optional[Dict[str, List[TextEdit]]] = None
-    document_changes: Any = None
+    changes: Optional[Dict[str, List[TextEdit]]]
+    document_changes: Optional[Any]
+    change_annotations: Optional[Dict[ChangeAnnotationIdentifier, ChangeAnnotation]]
 
     @root_validator
     def check_result_or_error(cls, values):
@@ -378,21 +442,21 @@ class WorkspaceEdit(Model):
 class WorkDoneProgressBegin(Model):
     kind: str = 'begin'
     title: str
-    cancellable: Optional[bool] = False
-    message: Optional[str] = None
-    percentage: Optional[NumType] = None
+    cancellable: Optional[bool]
+    message: Optional[str]
+    percentage: Optional[NumType]
 
 
 class WorkDoneProgressReport(Model):
     kind: str = 'report'
-    cancellable: Optional[bool] = False
-    message: Optional[str] = None
-    percentage: Optional[NumType] = None
+    cancellable: Optional[bool]
+    message: Optional[str]
+    percentage: Optional[NumType]
 
 
 class WorkDoneProgressEnd(Model):
     kind: str = 'end'
-    message: Optional[str] = None
+    message: Optional[str]
 
 
 class WorkDoneProgressParams(Model):

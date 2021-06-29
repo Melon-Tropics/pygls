@@ -19,30 +19,63 @@
 """This module contains Language Server Protocol types
 https://microsoft.github.io/language-server-protocol/specification
 
--- Client --
+-- Language Features - Call Hierarchy --
 
 Class attributes are named with camel case notation because client is expecting
 that.
 """
 from typing import Any, List, Optional
 
-from pygls.lsp.types.basic_structures import Model
+from pygls.lsp.types.basic_structures import (Model, PartialResultParams, Range,
+                                              StaticRegistrationOptions,
+                                              TextDocumentPositionParams,
+                                              TextDocumentRegistrationOptions,
+                                              WorkDoneProgressOptions, WorkDoneProgressParams)
+from pygls.lsp.types.language_features.document_symbol import SymbolKind, SymbolTag
 
 
-class Registration(Model):
-    id: str
-    method: str
-    register_options: Optional[Any]
+class CallHierarchyClientCapabilities(Model):
+    dynamic_registration: Optional[bool]
 
 
-class RegistrationParams(Model):
-    registrations: List[Registration]
+class CallHierarchyOptions(WorkDoneProgressOptions):
+
+    def __eq__(self, other: Any) -> bool:
+        return self.__dict__ == other.__dict__
 
 
-class Unregistration(Model):
-    id: str
-    method: str
+class CallHierarchyRegistrationOptions(TextDocumentRegistrationOptions, CallHierarchyOptions, StaticRegistrationOptions):
+    pass
 
 
-class UnregistrationParams(Model):
-    unregisterations: List[Unregistration]
+class CallHierarchyPrepareParams(TextDocumentPositionParams, WorkDoneProgressParams):
+    pass
+
+
+class CallHierarchyItem(Model):
+    name: str
+    kind: SymbolKind
+    uri: str
+    range: Range
+    selection_range: Range
+    tags: Optional[List[SymbolTag]]
+    detail: Optional[str]
+    data: Optional[Any]
+
+
+class CallHierarchyIncomingCallsParams(WorkDoneProgressParams, PartialResultParams):
+    item: CallHierarchyItem
+
+
+class CallHierarchyIncomingCall(Model):
+    from_: CallHierarchyItem
+    from_ranges: List[Range]
+
+
+class CallHierarchyOutgoingCallsParams(WorkDoneProgressParams, PartialResultParams):
+    item: CallHierarchyItem
+
+
+class CallHierarchyOutgoingCall(Model):
+    to: CallHierarchyItem
+    from_ranges: List[Range]

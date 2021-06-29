@@ -15,40 +15,40 @@
 # limitations under the License.                                           #
 ############################################################################
 import unittest
-from typing import List, Optional
+from typing import Optional
 
-from pygls.lsp.methods import CODE_LENS
-from pygls.lsp.types import (CodeLens, CodeLensOptions, CodeLensParams, Command, Position, Range,
-                             TextDocumentIdentifier)
+from pygls.lsp.methods import TEXT_DOCUMENT_LINKED_EDITING_RANGE
+from pygls.lsp.types import (LinkedEditingRangeOptions, LinkedEditingRangeParams,
+                             LinkedEditingRanges, Position, Range, TextDocumentIdentifier)
 
 from ..conftest import CALL_TIMEOUT, ClientServer
 
 
-class TestCodeLens(unittest.TestCase):
+class TestLinkedEditingRange(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.client_server = ClientServer()
         cls.client, cls.server = cls.client_server
 
         @cls.server.feature(
-            CODE_LENS,
-            CodeLensOptions(resolve_provider=False),
+            TEXT_DOCUMENT_LINKED_EDITING_RANGE,
+            LinkedEditingRangeOptions(),
         )
-        def f(params: CodeLensParams) -> Optional[List[CodeLens]]:
-            if params.text_document.uri == 'file://return.list':
-                return [
-                    CodeLens(
-                        range=Range(
+        def f(params: LinkedEditingRangeParams) -> Optional[LinkedEditingRanges]:
+            if params.text_document.uri == 'file://return.ranges':
+                return LinkedEditingRanges(
+                    ranges=[
+                        Range(
                             start=Position(line=0, character=0),
                             end=Position(line=1, character=1),
                         ),
-                        command=Command(
-                            title='cmd1',
-                            command='cmd1',
+                        Range(
+                            start=Position(line=1, character=1),
+                            end=Position(line=2, character=2),
                         ),
-                        data='some data',
-                    ),
-                ]
+                    ],
+                    word_pattern='pattern',
+                )
             else:
                 return None
 
@@ -61,27 +61,36 @@ class TestCodeLens(unittest.TestCase):
     def test_capabilities(self):
         capabilities = self.server.server_capabilities
 
-        assert capabilities.code_lens_provider
-        assert capabilities.code_lens_provider.resolve_provider == False
+        assert capabilities.linked_editing_range_provider
 
-    def test_code_lens_return_list(self):
+    def test_linked_editing_ranges_return_ranges(self):
         response = self.client.lsp.send_request(
-            CODE_LENS,
-            CodeLensParams(text_document=TextDocumentIdentifier(uri='file://return.list')),
+            TEXT_DOCUMENT_LINKED_EDITING_RANGE,
+            LinkedEditingRangeParams(
+                text_document=TextDocumentIdentifier(uri='file://return.ranges'),
+                position=Position(line=0, character=0),
+            ),
         ).result(timeout=CALL_TIMEOUT)
 
-        assert response[0]['data'] == 'some data'
-        assert response[0]['range']['start']['line'] == 0
-        assert response[0]['range']['start']['character'] == 0
-        assert response[0]['range']['end']['line'] == 1
-        assert response[0]['range']['end']['character'] == 1
-        assert response[0]['command']['title'] == 'cmd1'
-        assert response[0]['command']['command'] == 'cmd1'
+        assert response
 
-    def test_code_lens_return_none(self):
+        assert response['ranges'][0]['start']['line'] == 0
+        assert response['ranges'][0]['start']['character'] == 0
+        assert response['ranges'][0]['end']['line'] == 1
+        assert response['ranges'][0]['end']['character'] == 1
+        assert response['ranges'][1]['start']['line'] == 1
+        assert response['ranges'][1]['start']['character'] == 1
+        assert response['ranges'][1]['end']['line'] == 2
+        assert response['ranges'][1]['end']['character'] == 2
+        assert response['wordPattern'] == 'pattern'
+
+    def test_linked_editing_ranges_return_none(self):
         response = self.client.lsp.send_request(
-            CODE_LENS,
-            CodeLensParams(text_document=TextDocumentIdentifier(uri='file://return.none')),
+            TEXT_DOCUMENT_LINKED_EDITING_RANGE,
+            LinkedEditingRangeParams(
+                text_document=TextDocumentIdentifier(uri='file://return.none'),
+                position=Position(line=0, character=0),
+            ),
         ).result(timeout=CALL_TIMEOUT)
 
         assert response is None

@@ -19,30 +19,52 @@
 """This module contains Language Server Protocol types
 https://microsoft.github.io/language-server-protocol/specification
 
--- Client --
+-- Language Features - Monikers --
 
 Class attributes are named with camel case notation because client is expecting
 that.
 """
-from typing import Any, List, Optional
+import enum
+from typing import Optional
 
-from pygls.lsp.types.basic_structures import Model
-
-
-class Registration(Model):
-    id: str
-    method: str
-    register_options: Optional[Any]
+from pygls.lsp.types.basic_structures import (Model, PartialResultParams,
+                                              TextDocumentPositionParams,
+                                              TextDocumentRegistrationOptions,
+                                              WorkDoneProgressOptions, WorkDoneProgressParams)
 
 
-class RegistrationParams(Model):
-    registrations: List[Registration]
+class MonikerClientCapabilities(Model):
+    dynamic_registration: Optional[bool]
 
 
-class Unregistration(Model):
-    id: str
-    method: str
+class MonikerOptions(WorkDoneProgressOptions):
+    pass
 
 
-class UnregistrationParams(Model):
-    unregisterations: List[Unregistration]
+class MonikerRegistrationOptions(TextDocumentRegistrationOptions, MonikerOptions):
+    pass
+
+
+class MonikerParams(TextDocumentPositionParams, WorkDoneProgressParams, PartialResultParams):
+    pass
+
+
+class UniquenessLevel(str, enum.Enum):
+    Document = 'document'
+    Project = 'project'
+    Group = 'group'
+    Scheme = 'scheme'
+    Global = 'global'
+
+
+class MonikerKind(str, enum.Enum):
+    Import = 'import'
+    Export = 'export'
+    Local = 'local'
+
+
+class Moniker(Model):
+    scheme: str
+    identifier: str
+    unique: UniquenessLevel
+    kind: Optional[MonikerKind]

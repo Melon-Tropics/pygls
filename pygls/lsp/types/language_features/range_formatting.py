@@ -21,7 +21,7 @@ https://microsoft.github.io/language-server-protocol/specification
 
 -- Language Features - Range Formatting --
 
-Class attributes are named with camel-case notation because client is expecting
+Class attributes are named with camel case notation because client is expecting
 that.
 """
 from typing import Optional
@@ -32,7 +32,7 @@ from pygls.lsp.types.language_features.formatting import FormattingOptions
 
 
 class DocumentRangeFormattingClientCapabilities(Model):
-    dynamic_registration: Optional[bool] = False
+    dynamic_registration: Optional[bool]
 
 
 class DocumentRangeFormattingOptions(WorkDoneProgressOptions):

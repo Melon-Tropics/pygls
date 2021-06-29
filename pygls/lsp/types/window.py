@@ -21,13 +21,13 @@ https://microsoft.github.io/language-server-protocol/specification
 
 -- Window --
 
-Class attributes are named with camel-case notation because client is expecting
+Class attributes are named with camel case notation because client is expecting
 that.
 """
 import enum
-from typing import List, Optional
+from typing import Callable, List, Optional
 
-from pygls.lsp.types.basic_structures import Model, NumType, ProgressToken
+from pygls.lsp.types.basic_structures import URI, Model, NumType, ProgressToken, Range
 
 
 class MessageType(enum.IntEnum):
@@ -49,7 +49,30 @@ class MessageActionItem(Model):
 class ShowMessageRequestParams(Model):
     type: MessageType
     message: str
-    actions: Optional[List[MessageActionItem]] = None
+    actions: Optional[List[MessageActionItem]]
+
+
+class ShowDocumentClientCapabilities(Model):
+    support: Optional[bool]
+
+
+class ShowDocumentParams(Model):
+    uri: URI
+    external: Optional[bool]
+    take_focus: Optional[bool]
+    selection: Optional[Range]
+
+
+class ShowDocumentResult(Model):
+    success: bool
+
+
+class ShowMessageRequestActionItem(Model):
+    additional_properties_support: Optional[bool]
+
+
+class ShowMessageRequestClientCapabilities(Model):
+    message_action_item: Optional[ShowMessageRequestActionItem]
 
 
 class LogMessageParams(Model):
@@ -63,3 +86,6 @@ class WorkDoneProgressCreateParams(Model):
 
 class WorkDoneProgressCancelParams(Model):
     token: ProgressToken
+
+
+ShowDocumentCallbackType = Callable[[ShowDocumentResult], None]

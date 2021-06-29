@@ -21,16 +21,17 @@ https://microsoft.github.io/language-server-protocol/specification
 
 -- Language Features - Completion --
 
-Class attributes are named with camel-case notation because client is expecting
+Class attributes are named with camel case notation because client is expecting
 that.
 """
 import enum
 from typing import Any, List, Optional, Union
 
 from pygls.lsp.types.basic_structures import (Command, MarkupContent, MarkupKind, Model,
-                                              PartialResultParams, TextDocumentPositionParams,
-                                              TextEdit, WorkDoneProgressOptions,
-                                              WorkDoneProgressParams)
+                                              PartialResultParams, Range,
+                                              ResolveSupportClientCapabilities,
+                                              TextDocumentPositionParams, TextEdit,
+                                              WorkDoneProgressOptions, WorkDoneProgressParams)
 
 
 class CompletionTriggerKind(enum.IntEnum):
@@ -41,7 +42,7 @@ class CompletionTriggerKind(enum.IntEnum):
 
 class CompletionContext(Model):
     trigger_kind: CompletionTriggerKind
-    trigger_character: Optional[str] = None
+    trigger_character: Optional[str]
 
 
 class InsertTextFormat(enum.IntEnum):
@@ -82,61 +83,80 @@ class CompletionItemKind(enum.IntEnum):
 
 
 class CompletionOptions(WorkDoneProgressOptions):
-    trigger_characters: Optional[List[str]] = None
-    all_commit_characters: Optional[List[str]] = None
-    resolve_provider: Optional[bool] = False
+    trigger_characters: Optional[List[str]]
+    all_commit_characters: Optional[List[str]]
+    resolve_provider: Optional[bool]
 
 
 class CompletionParams(TextDocumentPositionParams, WorkDoneProgressParams, PartialResultParams):
-    context: Optional['CompletionContext'] = None
+    context: Optional['CompletionContext']
 
 
 class CompletionItemKindClientCapabilities(Model):
-    value_set: Optional[List[CompletionItemKind]] = None
+    value_set: Optional[List[CompletionItemKind]]
 
 
 class CompletionTagSupportClientCapabilities(Model):
-    value_set: Optional[List[CompletionItemTag]] = None
+    value_set: Optional[List[CompletionItemTag]]
+
+
+class InsertTextMode(enum.IntEnum):
+    AsIs = 1
+    AdjustIndentation = 2
+
+
+class InsertTextModeSupportClientCapabilities(Model):
+    value_set: List[InsertTextMode]
 
 
 class CompletionItemClientCapabilities(Model):
-    snippet_support: Optional[bool] = False
-    commit_characters_support: Optional[bool] = False
-    documentation_format: Optional[List[MarkupKind]] = None
-    deprecated_support: Optional[bool] = False
-    preselect_support: Optional[bool] = False
-    tag_support: Optional[CompletionTagSupportClientCapabilities] = None
+    snippet_support: Optional[bool]
+    commit_characters_support: Optional[bool]
+    documentation_format: Optional[List[MarkupKind]]
+    deprecated_support: Optional[bool]
+    preselect_support: Optional[bool]
+    tag_support: Optional[CompletionTagSupportClientCapabilities]
+    insert_replace_support: Optional[bool]
+    resolve_support: Optional[ResolveSupportClientCapabilities]
+    insert_text_mode_support: Optional[InsertTextModeSupportClientCapabilities]
 
 
 class CompletionClientCapabilities(Model):
-    dynamic_registration: Optional[bool] = False
-    completion_item: Optional[CompletionItemClientCapabilities] = None
-    completion_item_kind: Optional[CompletionItemKindClientCapabilities] = None
-    context_support: Optional[bool] = False
+    dynamic_registration: Optional[bool]
+    completion_item: Optional[CompletionItemClientCapabilities]
+    completion_item_kind: Optional[CompletionItemKindClientCapabilities]
+    context_support: Optional[bool]
+
+
+class InsertReplaceEdit(Model):
+    new_text: str
+    insert: Range
+    replace: Range
 
 
 class CompletionItem(Model):
     label: str
-    kind: Optional[CompletionItemKind] = None
-    tags: Optional[List[CompletionItemTag]] = None
-    detail: Optional[str] = None
-    documentation: Optional[Union[str, MarkupContent]] = None
-    deprecated: Optional[bool] = False
-    preselect: Optional[bool] = False
-    sort_text: Optional[str] = None
-    filter_text: Optional[str] = None
-    insert_text: Optional[str] = None
-    insert_text_format: Optional[InsertTextFormat] = None
-    text_edit: Optional[TextEdit] = None
-    additional_text_edits: Optional[List[TextEdit]] = None
-    commit_characters: Optional[List[str]] = None
-    command: Optional[Command] = None
-    data: Optional[Any] = None
+    kind: Optional[CompletionItemKind]
+    tags: Optional[List[CompletionItemTag]]
+    detail: Optional[str]
+    documentation: Optional[Union[str, MarkupContent]]
+    deprecated: Optional[bool]
+    preselect: Optional[bool]
+    sort_text: Optional[str]
+    filter_text: Optional[str]
+    insert_text: Optional[str]
+    insert_text_format: Optional[InsertTextFormat]
+    insert_text_mode: Optional[InsertTextMode]
+    text_edit: Optional[Union[TextEdit, InsertReplaceEdit]]
+    additional_text_edits: Optional[List[TextEdit]]
+    commit_characters: Optional[List[str]]
+    command: Optional[Command]
+    data: Optional[Any]
 
 
 class CompletionList(Model):
     is_incomplete: bool
-    items: List[CompletionItem] = []
+    items: List[CompletionItem]
 
     def add_item(self, completion_item):
         self.items.append(completion_item)

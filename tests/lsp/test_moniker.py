@@ -17,36 +17,31 @@
 import unittest
 from typing import List, Optional
 
-from pygls.lsp.methods import CODE_LENS
-from pygls.lsp.types import (CodeLens, CodeLensOptions, CodeLensParams, Command, Position, Range,
-                             TextDocumentIdentifier)
+from pygls.lsp.methods import TEXT_DOCUMENT_MONIKER
+from pygls.lsp.types import (Moniker, MonikerKind, MonikerOptions, MonikerParams, Position,
+                             TextDocumentIdentifier, UniquenessLevel)
 
 from ..conftest import CALL_TIMEOUT, ClientServer
 
 
-class TestCodeLens(unittest.TestCase):
+class TestMoniker(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.client_server = ClientServer()
         cls.client, cls.server = cls.client_server
 
         @cls.server.feature(
-            CODE_LENS,
-            CodeLensOptions(resolve_provider=False),
+            TEXT_DOCUMENT_MONIKER,
+            MonikerOptions(),
         )
-        def f(params: CodeLensParams) -> Optional[List[CodeLens]]:
+        def f(params: MonikerParams) -> Optional[List[Moniker]]:
             if params.text_document.uri == 'file://return.list':
                 return [
-                    CodeLens(
-                        range=Range(
-                            start=Position(line=0, character=0),
-                            end=Position(line=1, character=1),
-                        ),
-                        command=Command(
-                            title='cmd1',
-                            command='cmd1',
-                        ),
-                        data='some data',
+                    Moniker(
+                        scheme='test_scheme',
+                        identifier='test_identifier',
+                        unique=UniquenessLevel.Global,
+                        kind=MonikerKind.Local,
                     ),
                 ]
             else:
@@ -61,27 +56,31 @@ class TestCodeLens(unittest.TestCase):
     def test_capabilities(self):
         capabilities = self.server.server_capabilities
 
-        assert capabilities.code_lens_provider
-        assert capabilities.code_lens_provider.resolve_provider == False
+        assert capabilities.moniker_provider
 
-    def test_code_lens_return_list(self):
+    def test_moniker_return_list(self):
         response = self.client.lsp.send_request(
-            CODE_LENS,
-            CodeLensParams(text_document=TextDocumentIdentifier(uri='file://return.list')),
+            TEXT_DOCUMENT_MONIKER,
+            MonikerParams(
+                text_document=TextDocumentIdentifier(uri='file://return.list'),
+                position=Position(line=0, character=0),
+            )
         ).result(timeout=CALL_TIMEOUT)
 
-        assert response[0]['data'] == 'some data'
-        assert response[0]['range']['start']['line'] == 0
-        assert response[0]['range']['start']['character'] == 0
-        assert response[0]['range']['end']['line'] == 1
-        assert response[0]['range']['end']['character'] == 1
-        assert response[0]['command']['title'] == 'cmd1'
-        assert response[0]['command']['command'] == 'cmd1'
+        assert response
 
-    def test_code_lens_return_none(self):
+        assert response[0]['scheme'] == 'test_scheme'
+        assert response[0]['identifier'] == 'test_identifier'
+        assert response[0]['unique'] == 'global'
+        assert response[0]['kind'] == 'local'
+
+    def test_references_return_none(self):
         response = self.client.lsp.send_request(
-            CODE_LENS,
-            CodeLensParams(text_document=TextDocumentIdentifier(uri='file://return.none')),
+            TEXT_DOCUMENT_MONIKER,
+            MonikerParams(
+                text_document=TextDocumentIdentifier(uri='file://return.none'),
+                position=Position(line=0, character=0),
+            )
         ).result(timeout=CALL_TIMEOUT)
 
         assert response is None

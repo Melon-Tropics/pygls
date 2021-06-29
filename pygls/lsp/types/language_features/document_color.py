@@ -21,7 +21,7 @@ https://microsoft.github.io/language-server-protocol/specification
 
 -- Language Features - Document Color --
 
-Class attributes are named with camel-case notation because client is expecting
+Class attributes are named with camel case notation because client is expecting
 that.
 """
 from typing import Optional
@@ -33,7 +33,7 @@ from pygls.lsp.types.basic_structures import (Model, PartialResultParams, Range,
 
 
 class DocumentColorClientCapabilities(Model):
-    dynamic_registration: Optional[bool] = False
+    dynamic_registration: Optional[bool]
 
 
 class DocumentColorOptions(WorkDoneProgressOptions):

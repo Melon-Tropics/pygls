@@ -21,7 +21,7 @@ https://microsoft.github.io/language-server-protocol/specification
 
 -- Language Features - Color Presentation --
 
-Class attributes are named with camel-case notation because client is expecting
+Class attributes are named with camel case notation because client is expecting
 that.
 """
 from typing import List, Optional
@@ -40,5 +40,5 @@ class ColorPresentationParams(WorkDoneProgressParams, PartialResultParams):
 
 class ColorPresentation(Model):
     label: str
-    text_edit: Optional[TextEdit] = None
-    additional_text_edits: Optional[List[TextEdit]] = None
+    text_edit: Optional[TextEdit]
+    additional_text_edits: Optional[List[TextEdit]]

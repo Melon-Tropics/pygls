@@ -19,30 +19,61 @@
 """This module contains Language Server Protocol types
 https://microsoft.github.io/language-server-protocol/specification
 
--- Client --
+-- File Operations --
 
 Class attributes are named with camel case notation because client is expecting
 that.
 """
-from typing import Any, List, Optional
+import enum
+from typing import List, Optional
 
 from pygls.lsp.types.basic_structures import Model
 
 
-class Registration(Model):
-    id: str
-    method: str
-    register_options: Optional[Any]
+class FileOperationPatternKind(str, enum.Enum):
+    File = 'file'
+    Folder = 'folder'
 
 
-class RegistrationParams(Model):
-    registrations: List[Registration]
+class FileOperationPatternOptions(Model):
+    ignore_case: Optional[bool]
 
 
-class Unregistration(Model):
-    id: str
-    method: str
+class FileOperationPattern(Model):
+    glob: str
+    matches: Optional[FileOperationPatternKind]
+    options: Optional[FileOperationPatternOptions]
 
 
-class UnregistrationParams(Model):
-    unregisterations: List[Unregistration]
+class FileOperationFilter(Model):
+    scheme: Optional[str]
+    pattern: FileOperationPattern
+
+
+class FileOperationRegistrationOptions(Model):
+    filters: List[FileOperationFilter]
+
+
+class FileCreate(Model):
+    uri: str
+
+
+class CreateFilesParams(Model):
+    files: List[FileCreate]
+
+
+class FileRename(Model):
+    oldUri: str
+    newUri: str
+
+
+class RenameFilesParams(Model):
+    files: List[FileRename]
+
+
+class FileDelete(Model):
+    uri: str
+
+
+class DeleteFilesParams(Model):
+    files: List[FileDelete]

@@ -15,6 +15,7 @@
 # limitations under the License.                                           #
 ############################################################################
 import asyncio
+import json
 import logging
 import re
 import sys
@@ -28,7 +29,9 @@ from pygls.lsp.types import (ApplyWorkspaceEditResponse, ClientCapabilities, Con
                              ConfigurationParams, Diagnostic, MessageType, RegistrationParams,
                              ServerCapabilities, TextDocumentSyncKind, UnregistrationParams,
                              WorkspaceEdit)
-from pygls.protocol import LanguageServerProtocol
+from pygls.lsp.types.window import ShowDocumentCallbackType, ShowDocumentParams
+from pygls.progress import Progress
+from pygls.protocol import LanguageServerProtocol, deserialize_message
 from pygls.workspace import Workspace
 
 logger = logging.getLogger(__name__)
@@ -93,6 +96,25 @@ class StdOutTransportAdapter:
     def write(self, data):
         self.wfile.write(data)
         self.wfile.flush()
+
+
+class WebSocketTransportAdapter:
+    """Protocol adapter which calls write method.
+
+    Write method sends data via the WebSocket interface.
+    """
+
+    def __init__(self, ws, loop):
+        self._ws = ws
+        self._loop = loop
+
+    def close(self) -> None:
+        """Stop the WebSocket server."""
+        self._ws.close()
+
+    def write(self, data: Any) -> None:
+        """Create a task to write specified data into a WebSocket."""
+        asyncio.ensure_future(self._ws.send(data))
 
 
 class Server:
@@ -185,6 +207,8 @@ class Server:
                              self._stop_event,
                              stdin or sys.stdin.buffer,
                              self.lsp.data_received))
+        except BrokenPipeError:
+            logger.error('Connection to the client is lost! Shutting down the server.')
         except (KeyboardInterrupt, SystemExit):
             pass
         finally:
@@ -192,7 +216,7 @@ class Server:
 
     def start_tcp(self, host, port):
         """Starts TCP server."""
-        logger.info('Starting server on %s:%s', host, port)
+        logger.info('Starting TCP server on %s:%s', host, port)
 
         self._stop_event = Event()
         self._server = self.loop.run_until_complete(
@@ -203,6 +227,39 @@ class Server:
         except (KeyboardInterrupt, SystemExit):
             pass
         finally:
+            self.shutdown()
+
+    def start_ws(self, host, port):
+        """Starts WebSocket server."""
+        try:
+            import websockets
+        except ImportError:
+            logger.error('Run `pip install pygls[ws]` to install `websockets`.')
+            sys.exit(1)
+
+        logger.info('Starting WebSocket server on {}:{}'.format(host, port))
+
+        self._stop_event = Event()
+        self.lsp._send_only_body = True  # Don't send headers within the payload
+
+        async def connection_made(websocket, _):
+            """Handle new connection wrapped in the WebSocket."""
+            self.lsp.transport = WebSocketTransportAdapter(websocket, self.loop)
+            async for message in websocket:
+                self.lsp._procedure_handler(
+                    json.loads(message, object_hook=deserialize_message)
+                )
+
+        start_server = websockets.serve(connection_made, host, port)
+        self._server = start_server.ws_server
+        self.loop.run_until_complete(start_server)
+
+        try:
+            self.loop.run_forever()
+        except (KeyboardInterrupt, SystemExit):
+            pass
+        finally:
+            self._stop_event.set()
             self.shutdown()
 
     @property
@@ -272,7 +329,7 @@ class LanguageServer(Server):
         return self.lsp.fm.feature(feature_name, options)
 
     def get_configuration(self, params: ConfigurationParams,
-                          callback: ConfigCallbackType = None) -> Future:
+                          callback: Optional[ConfigCallbackType] = None) -> Future:
         """Gets the configuration settings from the client."""
         return self.lsp.get_configuration(params, callback)
 
@@ -280,17 +337,35 @@ class LanguageServer(Server):
         """Gets the configuration settings from the client. Should be called with `await`"""
         return self.lsp.get_configuration_async(params)
 
+    def log_trace(self, message: str, verbose: Optional[str] = None) -> None:
+        """Sends trace notification to the client."""
+        self.lsp.log_trace(message, verbose)
+
+    @property
+    def progress(self) -> Progress:
+        """Gets the object to manage client's progress bar."""
+        return self.lsp.progress
+
     def publish_diagnostics(self, doc_uri: str, diagnostics: List[Diagnostic]):
         """Sends diagnostic notification to the client."""
         self.lsp.publish_diagnostics(doc_uri, diagnostics)
 
-    def register_capability(self, params: RegistrationParams, callback):
+    def register_capability(self, params: RegistrationParams,
+                            callback: Optional[Callable[[], None]] = None) -> Future:
         """Register a new capability on the client."""
         return self.lsp.register_capability(params, callback)
 
-    def register_capability_async(self, params: RegistrationParams):
+    def register_capability_async(self, params: RegistrationParams) -> asyncio.Future:
         """Register a new capability on the client. Should be called with `await`"""
         return self.lsp.register_capability_async(params)
+
+    def semantic_tokens_refresh(self, callback: Optional[Callable[[], None]] = None) -> Future:
+        """Request a refresh of all semantic tokens."""
+        return self.lsp.semantic_tokens_refresh(callback)
+
+    def semantic_tokens_refresh_async(self) -> asyncio.Future:
+        """Request a refresh of all semantic tokens. Should be called with `await`"""
+        return self.lsp.semantic_tokens_refresh_async()
 
     def send_notification(self, method: str, params: object = None) -> None:
         """Sends notification to the client."""
@@ -300,6 +375,15 @@ class LanguageServer(Server):
     def server_capabilities(self) -> ServerCapabilities:
         """Return server capabilities."""
         return self.lsp.server_capabilities
+
+    def show_document(self, params: ShowDocumentParams,
+                      callback: Optional[ShowDocumentCallbackType] = None) -> Future:
+        """Display a particular document in the user interface."""
+        return self.lsp.show_document(params, callback)
+
+    def show_document_async(self, params: ShowDocumentParams) -> asyncio.Future:
+        """Display a particular document in the user interface. Should be called with `await`"""
+        return self.lsp.show_document_async(params)
 
     def show_message(self, message, msg_type=MessageType.Info) -> None:
         """Sends message to the client to display message."""
@@ -313,11 +397,12 @@ class LanguageServer(Server):
         """Decorator that mark function to execute it in a thread."""
         return self.lsp.thread()
 
-    def unregister_capability(self, params: UnregistrationParams, callback):
+    def unregister_capability(self, params: UnregistrationParams,
+                              callback: Optional[Callable[[], None]] = None) -> Future:
         """Unregister a new capability on the client."""
         return self.lsp.unregister_capability(params, callback)
 
-    def unregister_capability_async(self, params: UnregistrationParams):
+    def unregister_capability_async(self, params: UnregistrationParams) -> asyncio.Future:
         """Unregister a new capability on the client. Should be called with `await`"""
         return self.lsp.unregister_capability_async(params)
 
